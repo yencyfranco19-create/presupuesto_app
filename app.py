@@ -1,4 +1,5 @@
-import calendar
+
+ import calendar
 from datetime import date
 
 import numpy as np
@@ -6,10 +7,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-# ----------------------------------------------------------------------
-# 1. Configuración general
-# ----------------------------------------------------------------------
-MONEDA = "$"  # Cambia aquí el símbolo (ej: "$", "Bs.", "€")
+MONEDA = "$"
 CATEGORIAS = [
     "Comida",
     "Transporte",
@@ -29,13 +27,9 @@ st.set_page_config(
 
 
 def fmt(x: float) -> str:
-    """Formatea un número como moneda."""
     return f"{MONEDA}{x:,.2f}"
 
 
-# ----------------------------------------------------------------------
-# 2. Estado de la aplicación (persiste mientras dure la sesión)
-# ----------------------------------------------------------------------
 if "gastos" not in st.session_state:
     st.session_state.gastos = pd.DataFrame(columns=COLUMNAS)
 if "presupuesto" not in st.session_state:
@@ -48,7 +42,6 @@ fin_mes = date(hoy.year, hoy.month, dias_mes)
 
 
 def datos_ejemplo() -> pd.DataFrame:
-    """Genera movimientos de ejemplo del mes actual con un gasto atípico en Educación."""
     rng = np.random.default_rng(7)
     filas = []
     dia_libro = max(1, round(hoy.day * 0.7))
@@ -69,9 +62,6 @@ def datos_ejemplo() -> pd.DataFrame:
     return pd.DataFrame(filas, columns=COLUMNAS)
 
 
-# ----------------------------------------------------------------------
-# 3. Barra lateral: configuración y carga de datos
-# ----------------------------------------------------------------------
 with st.sidebar:
     st.markdown("## 🎯 Presupuesto mensual")
     st.session_state.presupuesto = st.number_input(
@@ -114,9 +104,6 @@ with st.sidebar:
         st.session_state.gastos = datos_ejemplo()
         st.rerun()
 
-# ----------------------------------------------------------------------
-# 4. Encabezado y validación de datos
-# ----------------------------------------------------------------------
 st.markdown("# 📊 Control de Presupuesto Inteligente")
 st.caption(f"Período: **{calendar.month_name[hoy.month].capitalize()} {hoy.year}** · Duración: **{dias_mes} días**")
 
@@ -133,9 +120,6 @@ if df.empty:
     st.info("💡 No existen gastos registrados dentro del mes en curso.")
     st.stop()
 
-# ----------------------------------------------------------------------
-# 5. Cálculos contables y estadísticos
-# ----------------------------------------------------------------------
 presupuesto = float(st.session_state.presupuesto)
 total = float(df["monto"].sum())
 disponible = presupuesto - total
@@ -158,7 +142,6 @@ if ultimo_dia >= 2:
     pendiente, intercepto = np.polyfit(x, acumulado.values, 1)
     proyeccion = max(float(pendiente * dias_mes + intercepto), total)
 
-# KPIs principales
 m1, m2, m3, m4 = st.columns(4)
 m1.metric("💳 Gastado a la fecha", fmt(total))
 m2.metric("🎯 Presupuesto mensual", fmt(presupuesto))
@@ -169,15 +152,11 @@ m4.metric(
     delta=fmt(presupuesto - proyeccion) if proyeccion is not None else None,
 )
 
-# Barra visual de consumo del presupuesto
 st.progress(min(max(porcentaje_uso, 0.0), 1.0))
 st.caption(f"Has consumido el **{porcentaje_uso * 100:.1f}%** del presupuesto asignado.")
 
-# ----------------------------------------------------------------------
-# 6. Secciones organizadas en pestañas
-# ----------------------------------------------------------------------
 tab_resumen, tab_alertas, tab_detalle = st.tabs(
-    ["📈 Proyección y Gráficas", "🚨 Detección de Atípicos", "📋 Libro de Gastos y Metodología"]
+    ["📈 Proyección y Gráficas", "🚨 Detección de Atípicos", "📋 Libro de Gastos"]
 )
 
 with tab_resumen:
@@ -350,15 +329,4 @@ with tab_detalle:
         data=csv_data,
         file_name=f"gastos_{hoy.year}_{hoy.month:02d}.csv",
         mime="text/csv",
-    )
-
-    st.divider()
-    st.markdown("### 💡 Fundamentos para tu exposición")
-    st.markdown(
-        """
-* **Proyección por regresión lineal (`np.polyfit`):** calcula una recta sobre el gasto acumulado diario. La pendiente representa el ritmo promedio diario y permite estimar el cierre del mes y cuánto ajustar por día si hay riesgo de pasarse.
-* **Días atípicos con Z-score modificado y MAD:** en vez de usar promedio y desviación estándar (que se alteran mucho ante un gasto gigante), usa **mediana** y **MAD** (*Median Absolute Deviation*). Un valor `> 3.5` señala un día fuera de lo habitual.
-* **Atípicos por categoría con IQR:** calcula `Q1`, `Q3` y el rango intercuartílico (`IQR = Q3 - Q1`) dentro de cada rubro. Si un gasto supera `Q3 + 1.5 * IQR`, se marca como inusual según el comportamiento propio de esa categoría.
-* **Limitación importante:** en memoria (`st.session_state`), los datos se reinician si cierras o recargas la pestaña; además, una compra grande única (como matrícula o alquiler) altera la proyección lineal.
-        """
     )
